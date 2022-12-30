@@ -1,3 +1,4 @@
+use crate::bool::{False, True};
 use crate::func::{Apply, _Apply};
 use std::marker::PhantomData;
 
@@ -11,6 +12,14 @@ pub struct Pred;
 impl<N> _Apply for (Pred, S<N>) {
     type R = N;
 }
+
+pub trait _Pred {
+    type R;
+}
+impl<N> _Pred for S<N> {
+    type R = N;
+}
+pub type PPred<N> = <N as _Pred>::R;
 
 /// Sum of two type numbers
 pub struct Add;
@@ -49,6 +58,20 @@ where
     type R = Apply<Sub, (K, N)>;
 }
 
+pub struct Less;
+impl<N> _Apply for (Less, (Z, S<N>)) {
+    type R = True;
+}
+impl<N> _Apply for (Less, (S<N>, Z)) {
+    type R = False;
+}
+impl<A, B> _Apply for (Less, (S<A>, S<B>))
+where
+    (Less, (A, B)): _Apply,
+{
+    type R = Apply<Less, (A, B)>;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -77,5 +100,53 @@ mod tests {
         let _: Equal<Apply<Sub, (N1, N1)>, Z>;
         let _: Equal<Apply<Sub, (N4, N1)>, N3>;
         let _: Equal<Apply<Sub, (N4, N3)>, N1>;
+    }
+
+    #[test]
+    fn fib() {
+        struct Fib;
+        impl _Apply for (Fib, Z) {
+            type R = S<Z>;
+        }
+        impl _Apply for (Fib, S<Z>) {
+            type R = S<Z>;
+        }
+        impl<N> _Apply for (Fib, S<S<N>>)
+        where
+            (Fib, N): _Apply,
+            (Fib, S<N>): _Apply,
+            (Add, (<(Fib, N) as _Apply>::R, <(Fib, S<N>) as _Apply>::R)): _Apply,
+        {
+            type R = Apply<Add, (Apply<Fib, N>, Apply<Fib, S<N>>)>;
+        }
+
+        let _: Equal<Apply<Fib, Z>, S<Z>>;
+        let _: Equal<Apply<Fib, S<Z>>, S<Z>>;
+        let _: Equal<Apply<Fib, S<S<Z>>>, S<S<Z>>>;
+        let _: Equal<Apply<Fib, S<S<S<Z>>>>, S<S<S<Z>>>>;
+        let _: Equal<Apply<Fib, S<S<S<S<Z>>>>>, S<S<S<S<S<Z>>>>>>;
+        let _: Equal<Apply<Fib, S<S<S<S<S<Z>>>>>>, S<S<S<S<S<S<S<S<Z>>>>>>>>>;
+        let _: Equal<Apply<Fib, S<S<S<S<S<S<Z>>>>>>>, S<S<S<S<S<S<S<S<S<S<S<S<S<Z>>>>>>>>>>>>>>;
+    }
+
+    #[test]
+    fn fact() {
+        struct Fact;
+        impl _Apply for (Fact, Z) {
+            type R = S<Z>;
+        }
+        impl<N> _Apply for (Fact, S<N>)
+        where
+            (Fact, N): _Apply,
+            (Mul, (<(Fact, N) as _Apply>::R, S<N>)): _Apply,
+        {
+            type R = Apply<Mul, (Apply<Fact, N>, S<N>)>;
+        }
+
+        let _: Equal<Apply<Fact, Z>, S<Z>>;
+        let _: Equal<Apply<Fact, S<Z>>, S<Z>>;
+        let _: Equal<Apply<Fact, S<S<Z>>>, S<S<Z>>>;
+        let _: Equal<Apply<Fact, S<S<S<Z>>>>, S<S<S<S<S<S<Z>>>>>>>;
+        let _: Equal<Apply<Fact, S<S<S<S<Z>>>>>, S<S<S<S<S<S<S<S<S<S<S<S<S<S<S<S<S<S<S<S<S<S<S<S<Z>>>>>>>>>>>>>>>>>>>>>>>>>;
     }
 }
